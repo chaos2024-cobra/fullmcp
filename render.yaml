@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: raahi-unified-mcp
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: MOCK_MODE
+        value: "true"
+      - key: ALLOWED_HOSTS
+        sync: false
+      - key: GNANI_API_KEY
+        sync: false
+      - key: GNANI_BASE_URL
+        sync: false
+      - key: DELHIVERY_API_KEY
+        sync: false
+      - key: DELHIVERY_BASE_URL
+        sync: false
+      - key: PINELABS_ACCESS_TOKEN
+        sync: false
+      - key: PINELABS_BASE_URL
+        sync: false
+      - key: PINELABS_CLIENT_ID
+        sync: false
+      - key: PINELABS_CLIENT_SECRET
+        sync: false
