@@ -9,6 +9,8 @@ services:
     envVars:
       - key: MOCK_MODE
         value: "true"
+      - key: MOCK_SCENARIO
+        value: "SUCCESS"
       - key: ALLOWED_HOSTS
         sync: false
       - key: GNANI_API_KEY
