@@ -1,0 +1,6 @@
+mcp==2.3.0
+starlette>=0.46,<1
+uvicorn[standard]>=0.34,<1
+httpx>=0.28,<1
+pytest>=8,<9
+pytest-asyncio>=0.25,<1
