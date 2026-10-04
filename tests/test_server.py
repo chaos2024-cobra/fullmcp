@@ -5,7 +5,7 @@ from httpx import ASGITransport, AsyncClient
 
 from capabilities import TOOL_NAMES
 from server import app
-from gnani_agent import tts_payload
+from gnani_agent import AGENT_CARD, a2a_text, tts_payload
 
 
 @pytest.mark.asyncio
@@ -92,3 +92,9 @@ def test_standalone_gnani_gateway_builds_complete_payload():
     assert payload["voice"] == "Nalini"
     assert payload["model"] == "timbre-v2.5"
     assert payload["audio_config"]["container"] == "wav"
+
+def test_gnani_gateway_exposes_a2a_card_and_message_contract():
+    assert AGENT_CARD["protocolVersion"] == "0.3.0"
+    assert AGENT_CARD["preferredTransport"] == "JSONRPC"
+    assert AGENT_CARD["url"].endswith("/a2a")
+    assert a2a_text({"message": {"parts": [{"kind": "text", "text": "Hello"}]}}) == "Hello"
