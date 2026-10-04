@@ -5,6 +5,7 @@ from httpx import ASGITransport, AsyncClient
 
 from capabilities import TOOL_NAMES
 from server import app
+from gnani_agent import tts_payload
 
 
 @pytest.mark.asyncio
@@ -83,3 +84,11 @@ async def test_gnani_required_inputs():
     assert result["error"]["code"] == "TEXT_REQUIRED"
     result = await execute("transcribe_speech", {})
     assert result["error"]["code"] == "AUDIO_REQUIRED"
+
+
+def test_standalone_gnani_gateway_builds_complete_payload():
+    payload = tts_payload({"text": "Hello from Raahi."})
+    assert payload["text"] == "Hello from Raahi."
+    assert payload["voice"] == "Nalini"
+    assert payload["model"] == "timbre-v2.5"
+    assert payload["audio_config"]["container"] == "wav"

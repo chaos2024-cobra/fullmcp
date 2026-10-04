@@ -87,6 +87,14 @@ Register the single AgenticOrg MCP URL:
 
 `https://<render-service>.onrender.com/mcp`
 
+For Gnani, the repository also defines a standalone gateway service at
+`/tts`. Deploy the `raahi-gnani-agent` Render service from the Blueprint and
+call `POST https://<gnani-service>.onrender.com/tts` with only `{"text": "..."}`.
+The gateway adds Gnani's required voice, model, language, speed, and audio
+configuration and keeps `GNANI_API_KEY` outside the client. It is an external
+service boundary, not an AgenticOrg tool-planning workaround; connect it to an
+external orchestrator or A2A/MCP client after deployment.
+
 After changing provider authentication or endpoint mappings, redeploy Render
 and run a non-destructive smoke test. Do not promote the agent until the
 provider's own response is observed for each operation; credentials alone do
