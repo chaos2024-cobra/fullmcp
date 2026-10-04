@@ -35,6 +35,16 @@ SCHEMAS = {
     for name in TOOL_NAMES
 }
 SCHEMAS.update({
+    "speak_reply": {"type": "object", "required": ["text"],
+                   "properties": {"text": {"type": "string"},
+                                  "voice": {"type": "string"},
+                                  "model": {"type": "string"},
+                                  "language": {"type": "string"},
+                                  "speed": {"type": "number"},
+                                  "audio_config": {"type": "object"}}},
+    "transcribe_speech": {"type": "object", "required": ["audio"],
+                          "properties": {"audio": {"type": "string"},
+                                         "language_code": {"type": "string"}}},
     "collect_payment": {"type": "object", "required": ["order_amount", "purpose"],
                         "properties": {"order_amount": {"type": "number"},
                                        "purpose": {"type": "string"},
@@ -187,6 +197,10 @@ async def provider_call(tool: str, args: dict, provider: str) -> dict:
                         error=err(f"{provider.upper()}_ERROR", "Provider request failed", True))
 
 def validate(tool: str, args: dict) -> dict | None:
+    if tool == "speak_reply" and not str(args.get("text", "")).strip():
+        return err("TEXT_REQUIRED", "Speech text is required")
+    if tool == "transcribe_speech" and not (args.get("audio") or args.get("audio_file")):
+        return err("AUDIO_REQUIRED", "Audio is required for transcription")
     if tool == "collect_payment":
         amount = args.get("order_amount")
         confirmed = args.get("confirmed_amount")
