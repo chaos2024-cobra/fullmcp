@@ -93,7 +93,9 @@ call `POST https://<gnani-service>.onrender.com/tts` with only `{"text": "..."}`
 The gateway adds Gnani's required voice, model, language, speed, and audio
 configuration and keeps `GNANI_API_KEY` outside the client. It is an external
 service boundary, not an AgenticOrg tool-planning workaround; connect it to an
-external orchestrator or A2A/MCP client after deployment.
+external orchestrator or A2A/MCP client after deployment. For AgenticOrg, use
+the MCP URL `https://<gnani-service>.onrender.com/mcp`; it exposes one
+`gnani_speak` tool whose only required argument is `text`.
 
 After changing provider authentication or endpoint mappings, redeploy Render
 and run a non-destructive smoke test. Do not promote the agent until the
