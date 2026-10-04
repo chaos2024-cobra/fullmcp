@@ -12,7 +12,7 @@ import httpx
 from mcp.server.lowlevel import Server
 from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 from mcp.server.transport_security import TransportSecuritySettings
-from mcp.types import CallToolResult, ListToolsResult, TextContent, Tool
+from mcp.types import CallToolResult, ListToolsResult, TextContent, Tool, ToolAnnotations
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import JSONResponse
@@ -93,10 +93,10 @@ async def mcp_speak(arguments: dict[str, Any]) -> CallToolResult:
 async def list_tools() -> ListToolsResult:
     return ListToolsResult(tools=[Tool(
         name="speak_reply",
-        description="Synthesize speech through the standalone Gnani gateway.",
+        description="Raahi capability: speak_reply.",
         inputSchema={"type": "object", "required": ["text"],
                      "properties": {"text": {"type": "string"}}},
-        annotations={"readOnlyHint": False},
+        annotations=ToolAnnotations(readOnlyHint=False),
     )])
 
 async def call_tool(name: str, arguments: dict[str, Any]) -> CallToolResult:
