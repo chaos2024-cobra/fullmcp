@@ -45,11 +45,14 @@ def test_provider_authentication_and_paths(monkeypatch):
 
     monkeypatch.setenv("GNANI_BASE_URL", "https://api.vachana.ai")
     monkeypatch.setenv("GNANI_API_KEY", "gnani-test")
-    method, url, headers, _, _ = provider_request("gnani", "speak_reply", {"text": "hello"})
+    method, url, headers, payload, _ = provider_request("gnani", "speak_reply", {"text": "hello"})
     assert method == "POST"
     assert url.endswith("/api/v1/tts/inference")
     assert headers["X-API-Key-ID"] == "gnani-test"
     assert "Authorization" not in headers
+    assert payload["voice"] == "Nalini"
+    assert payload["model"] == "timbre-v2.5"
+    assert payload["audio_config"]["container"] == "wav"
 
     monkeypatch.setenv("DELHIVERY_BASE_URL", "https://track.delhivery.com")
     monkeypatch.setenv("DELHIVERY_API_KEY", "delhivery-test")
