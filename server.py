@@ -103,10 +103,25 @@ def provider_request(provider: str, tool: str, args: dict) -> tuple[str, str, di
         paths = {"transcribe_speech": "/stt/v3", "speak_reply": "/api/v1/tts/inference"}
         if tool not in paths:
             raise ValueError(f"{tool} is not implemented by the Gnani adapter")
+        if tool == "transcribe_speech":
+            return "MULTIPART", f"{base}{paths[tool]}", {
+                "X-API-Key-ID": os.environ["GNANI_API_KEY"],
+            }, args, {}
+        payload = {
+            "text": args.get("text", ""),
+            "voice": args.get("voice", "Nalini"),
+            "model": args.get("model", "timbre-v2.5"),
+            "language": args.get("language", "en-IN"),
+            "speed": args.get("speed", 1.0),
+            "audio_config": args.get("audio_config", {
+                "sample_rate": 48000, "num_channels": 1, "sample_width": 2,
+                "encoding": "linear_pcm", "container": "wav",
+            }),
+        }
         return "POST", f"{base}{paths[tool]}", {
             "X-API-Key-ID": os.environ["GNANI_API_KEY"],
             "Content-Type": "application/json",
-        }, args, {}
+        }, payload, {}
     if provider == "delhivery":
         token = os.environ["DELHIVERY_API_KEY"]
         headers = {"Authorization": f"Token {token}", "Content-Type": "application/json"}
@@ -135,7 +150,19 @@ async def provider_call(tool: str, args: dict, provider: str) -> dict:
     try:
         method, url, headers, payload, params = provider_request(provider, tool, args)
         async with httpx.AsyncClient(timeout=20) as client:
-            response = await client.request(method, url, json=payload, headers=headers, params=params)
+            if method == "MULTIPART":
+                audio = payload.get("audio") or payload.get("audio_file")
+                if not audio:
+                    raise ValueError("transcribe_speech requires audio or audio_file")
+                response = await client.post(
+                    url, headers=headers,
+                    files={"audio_file": ("audio.wav", audio, "audio/wav")},
+                    data={"language_code": payload.get("language_code", "en-IN")},
+                    params=params,
+                )
+            else:
+                response = await client.request(
+                    method, url, json=payload, headers=headers, params=params)
             response.raise_for_status()
             body = response.json()
         return envelope(tool, provider, "real", body)
@@ -147,9 +174,11 @@ async def provider_call(tool: str, args: dict, provider: str) -> dict:
     except httpx.HTTPStatusError as exc:
         logger.warning("provider request failed tool=%s provider=%s status=%s",
                        tool, provider, exc.response.status_code)
+        detail = exc.response.text[:300].replace("\n", " ").strip()
         return envelope(tool, provider, "real", error=err(
             f"{provider.upper()}_HTTP_{exc.response.status_code}",
-            f"{provider} rejected the request with HTTP {exc.response.status_code}",
+            f"{provider} rejected the request with HTTP {exc.response.status_code}"
+            + (f": {detail}" if detail else ""),
             exc.response.status_code >= 500))
     except (httpx.HTTPError, ValueError) as exc:
         logger.warning("provider request failed tool=%s provider=%s error=%s",
