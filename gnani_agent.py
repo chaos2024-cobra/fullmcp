@@ -96,6 +96,7 @@ async def list_tools() -> ListToolsResult:
         description="Synthesize speech through the standalone Gnani gateway.",
         inputSchema={"type": "object", "required": ["text"],
                      "properties": {"text": {"type": "string"}}},
+        annotations={"readOnlyHint": False},
     )])
 
 async def call_tool(name: str, arguments: dict[str, Any]) -> CallToolResult:
