@@ -92,7 +92,7 @@ async def mcp_speak(arguments: dict[str, Any]) -> CallToolResult:
 
 async def list_tools() -> ListToolsResult:
     return ListToolsResult(tools=[Tool(
-        name="gnani_speak",
+        name="speak_reply",
         description="Synthesize speech through the standalone Gnani gateway.",
         inputSchema={"type": "object", "required": ["text"],
                      "properties": {"text": {"type": "string"}}},
@@ -100,7 +100,7 @@ async def list_tools() -> ListToolsResult:
     )])
 
 async def call_tool(name: str, arguments: dict[str, Any]) -> CallToolResult:
-    if name != "gnani_speak":
+    if name != "speak_reply":
         return CallToolResult(
             content=[TextContent(type="text", text=json.dumps(
                 {"ok": False, "error": "Unknown tool"}))], isError=True)
