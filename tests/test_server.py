@@ -73,3 +73,13 @@ def test_unsupported_provider_capability_is_explicit(monkeypatch):
     result = __import__("asyncio").run(execute("navigate_ivr", {"dtmf_sequence": "1"}))
     assert result["ok"] is False
     assert result["error"]["code"] == "PROVIDER_CAPABILITY_UNIMPLEMENTED"
+
+
+@pytest.mark.asyncio
+async def test_gnani_required_inputs():
+    from server import execute
+
+    result = await execute("speak_reply", {})
+    assert result["error"]["code"] == "TEXT_REQUIRED"
+    result = await execute("transcribe_speech", {})
+    assert result["error"]["code"] == "AUDIO_REQUIRED"
