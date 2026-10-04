@@ -97,6 +97,12 @@ external orchestrator or A2A/MCP client after deployment. For AgenticOrg, use
 the MCP URL `https://<gnani-service>.onrender.com/mcp`; it exposes one
 `gnani_speak` tool whose only required argument is `text`.
 
+The same service also exposes a genuine A2A JSON-RPC endpoint at
+`https://<gnani-service>.onrender.com/a2a` and an Agent Card at
+`/.well-known/agent-card.json`. Send a `message/send` request containing a
+non-empty text part; the completed task artifact contains the Gnani audio
+metadata and base64 audio. This A2A path is independent of the MCP connector.
+
 After changing provider authentication or endpoint mappings, redeploy Render
 and run a non-destructive smoke test. Do not promote the agent until the
 provider's own response is observed for each operation; credentials alone do
