@@ -2,15 +2,22 @@
 from __future__ import annotations
 
 import base64
+import contextlib
+import json
 import os
 import uuid
 from typing import Any
 
 import httpx
+from mcp.server.lowlevel import Server
+from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
+from mcp.server.transport_security import TransportSecuritySettings
+from mcp.types import CallToolResult, ListToolsResult, TextContent, Tool
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Route
+from starlette.routing import BaseRoute, Match
 
 
 def tts_payload(body: dict[str, Any]) -> dict[str, Any]:
@@ -72,8 +79,61 @@ async def tts(request: Request) -> JSONResponse:
                              "error": f"Gnani request failed: {type(exc).__name__}"},
                             status_code=502)
 
+async def mcp_speak(arguments: dict[str, Any]) -> CallToolResult:
+    class _Request:
+        async def json(self):
+            return arguments
+    result = await tts(_Request())
+    body = json.loads(result.body)
+    return CallToolResult(
+        content=[TextContent(type="text", text=json.dumps(body))],
+        isError=not body.get("ok", False),
+    )
+
+async def list_tools() -> ListToolsResult:
+    return ListToolsResult(tools=[Tool(
+        name="gnani_speak",
+        description="Synthesize speech through the standalone Gnani gateway.",
+        inputSchema={"type": "object", "required": ["text"],
+                     "properties": {"text": {"type": "string"}}},
+    )])
+
+async def call_tool(name: str, arguments: dict[str, Any]) -> CallToolResult:
+    if name != "gnani_speak":
+        return CallToolResult(
+            content=[TextContent(type="text", text=json.dumps(
+                {"ok": False, "error": "Unknown tool"}))], isError=True)
+    return await mcp_speak(arguments)
+
+mcp_server = Server(
+    "raahi-gnani-agent", version="1.0.0",
+    on_list_tools=lambda _ctx, _params: list_tools(),
+    on_call_tool=lambda _ctx, params: call_tool(params.name, params.arguments or {}),
+)
+session_manager = StreamableHTTPSessionManager(
+    mcp_server, json_response=True,
+    security_settings=TransportSecuritySettings(enable_dns_rebinding_protection=False),
+)
+
+async def mcp_endpoint(scope, receive, send):
+    await session_manager.handle_request(scope, receive, send)
+
+class MCPRoute(BaseRoute):
+    def matches(self, scope):
+        if scope["type"] == "http" and scope["path"] == "/mcp" and scope["method"] in {"GET", "POST", "DELETE"}:
+            return Match.FULL, {}
+        return Match.NONE, {}
+
+    async def handle(self, scope, receive, send):
+        await mcp_endpoint(scope, receive, send)
+
+@contextlib.asynccontextmanager
+async def lifespan(app):
+    async with session_manager.run():
+        yield
 
 app = Starlette(routes=[
     Route("/health", health, methods=["GET"]),
     Route("/tts", tts, methods=["POST"]),
-])
+    MCPRoute(),
+], lifespan=lifespan)
