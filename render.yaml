@@ -29,3 +29,15 @@ services:
         sync: false
       - key: PINELABS_CLIENT_SECRET
         sync: false
+  - type: web
+    name: raahi-gnani-agent
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn gnani_agent:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: GNANI_API_KEY
+        sync: false
+      - key: GNANI_BASE_URL
+        value: https://api.vachana.ai
