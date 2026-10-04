@@ -38,3 +38,35 @@ async def test_deterministic_mock_failure_scenarios(monkeypatch):
     result = await execute("track_shipment", {"awb": "x", "scenario": "NDR"})
     assert result["data"]["state"] == "NDR"
     assert result["data"]["delivery_scan"] is False
+
+
+def test_provider_authentication_and_paths(monkeypatch):
+    from server import provider_request
+
+    monkeypatch.setenv("GNANI_BASE_URL", "https://api.vachana.ai")
+    monkeypatch.setenv("GNANI_API_KEY", "gnani-test")
+    method, url, headers, _, _ = provider_request("gnani", "speak_reply", {"text": "hello"})
+    assert method == "POST"
+    assert url.endswith("/api/v1/tts/inference")
+    assert headers["X-API-Key-ID"] == "gnani-test"
+    assert "Authorization" not in headers
+
+    monkeypatch.setenv("DELHIVERY_BASE_URL", "https://track.delhivery.com")
+    monkeypatch.setenv("DELHIVERY_API_KEY", "delhivery-test")
+    method, url, headers, _, params = provider_request(
+        "delhivery", "track_shipment", {"awb": "123"})
+    assert method == "GET"
+    assert url.endswith("/api/v1/packages-json/")
+    assert headers["Authorization"] == "Token delhivery-test"
+    assert params == {"waybill": "123"}
+
+
+def test_unsupported_provider_capability_is_explicit(monkeypatch):
+    from server import execute
+
+    monkeypatch.setenv("MOCK_MODE", "false")
+    monkeypatch.setenv("GNANI_BASE_URL", "https://api.vachana.ai")
+    monkeypatch.setenv("GNANI_API_KEY", "gnani-test")
+    result = __import__("asyncio").run(execute("navigate_ivr", {"dtmf_sequence": "1"}))
+    assert result["ok"] is False
+    assert result["error"]["code"] == "PROVIDER_CAPABILITY_UNIMPLEMENTED"

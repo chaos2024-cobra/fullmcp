@@ -12,11 +12,15 @@ manager and exposes exactly 21 tools. `capabilities.py` is the source of
 truth for whether a capability is real, conditional, or mock-only.
 
 Gnani tools use the real API when `GNANI_API_KEY` and `GNANI_BASE_URL` are
-configured. Delhivery tools use the real API when its credentials and base URL
-are configured. `collect_payment` uses Pine Labs/Plural when its access token
-is configured. Pine Labs AA/identity capabilities are conditional: they use a
-real configured integration only when credentials are present, otherwise they
-return deterministic mock results explicitly marked `execution_mode=mock`.
+configured, using Gnani's `X-API-Key-ID` header. Delhivery tools use the real
+API when `DELHIVERY_API_KEY` and `DELHIVERY_BASE_URL` are configured, using
+Delhivery's `Token` header and provider paths. `collect_payment` uses the Pine
+Labs/Plural orders API when `PINELABS_ACCESS_TOKEN` is configured. Pine Labs
+client-ID/client-secret credentials are accepted for configuration discovery,
+but OAuth token exchange must be added once the tenant's exact Plural contract
+is confirmed. Unsupported provider capabilities return an explicit
+`PROVIDER_CAPABILITY_UNIMPLEMENTED` error rather than a generic provider
+failure or a fabricated success.
 Appointment booking, travel insurance, web checklists, and the bank-letter
 workaround are internal deterministic mocks and are never described as
 partner-issued artifacts.
@@ -82,6 +86,11 @@ GitHub.
 Register the single AgenticOrg MCP URL:
 
 `https://<render-service>.onrender.com/mcp`
+
+After changing provider authentication or endpoint mappings, redeploy Render
+and run a non-destructive smoke test. Do not promote the agent until the
+provider's own response is observed for each operation; credentials alone do
+not prove that an account has access to an endpoint.
 
 ## State, chain of custody, and failures
 

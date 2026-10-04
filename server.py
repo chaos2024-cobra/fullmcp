@@ -89,29 +89,73 @@ def mock_result(tool: str, args: dict, provider="raahi_mock") -> dict:
     return envelope(tool, provider, "mock", data)
 
 def configured(provider: str) -> bool:
-    return bool(os.getenv({"gnani": "GNANI_API_KEY", "delhivery": "DELHIVERY_API_KEY",
-                           "pinelabs": "PINELABS_ACCESS_TOKEN"}.get(provider, "")))
+    if provider == "pinelabs":
+        return bool(os.getenv("PINELABS_BASE_URL") and (
+            os.getenv("PINELABS_ACCESS_TOKEN") or
+            (os.getenv("PINELABS_CLIENT_ID") and os.getenv("PINELABS_CLIENT_SECRET"))))
+    return bool(os.getenv(f"{provider.upper()}_BASE_URL") and
+                os.getenv(f"{provider.upper()}_API_KEY"))
+
+def provider_request(provider: str, tool: str, args: dict) -> tuple[str, str, dict, dict, dict]:
+    """Map Raahi tool names to provider-specific paths and authentication."""
+    base = os.environ[f"{provider.upper()}_BASE_URL"].rstrip("/")
+    if provider == "gnani":
+        paths = {"transcribe_speech": "/stt/v3", "speak_reply": "/api/v1/tts/inference"}
+        if tool not in paths:
+            raise ValueError(f"{tool} is not implemented by the Gnani adapter")
+        return "POST", f"{base}{paths[tool]}", {
+            "X-API-Key-ID": os.environ["GNANI_API_KEY"],
+            "Content-Type": "application/json",
+        }, args, {}
+    if provider == "delhivery":
+        token = os.environ["DELHIVERY_API_KEY"]
+        headers = {"Authorization": f"Token {token}", "Content-Type": "application/json"}
+        if tool == "track_shipment":
+            return "GET", f"{base}/api/v1/packages-json/", headers, {}, {
+                "waybill": args.get("awb", "")}
+        if tool == "check_serviceability":
+            return "GET", f"{base}/api/cms/pin-codes/json/", headers, {}, {
+                "token": token, "filter_codes": args.get("pincode", "")}
+        if tool == "schedule_document_pickup":
+            return "POST", f"{base}/api/cmu/create.json", headers, args, {}
+        raise ValueError(f"{tool} is not implemented by the Delhivery adapter")
+    if provider == "pinelabs":
+        if tool != "collect_payment":
+            raise ValueError(f"{tool} requires a provider-specific Pine Labs contract")
+        return "POST", f"{base}/api/pay/v1/orders", {
+            "Authorization": f"Bearer {os.getenv('PINELABS_ACCESS_TOKEN', '')}",
+            "Content-Type": "application/json", "Accept": "application/json",
+        }, args, {}
+    raise ValueError(f"Unsupported provider: {provider}")
 
 async def provider_call(tool: str, args: dict, provider: str) -> dict:
-    base = os.getenv({"gnani": "GNANI_BASE_URL", "delhivery": "DELHIVERY_BASE_URL",
-                      "pinelabs": "PINELABS_BASE_URL"}[provider])
-    if not base:
+    if not configured(provider):
         return envelope(tool, provider, "real", error=err("PROVIDER_NOT_CONFIGURED",
-                         f"{provider} base URL is not configured"))
-    token = os.getenv({"gnani": "GNANI_API_KEY", "delhivery": "DELHIVERY_API_KEY",
-                       "pinelabs": "PINELABS_ACCESS_TOKEN"}[provider])
-    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+                         f"{provider} base URL and credentials are required"))
     try:
+        method, url, headers, payload, params = provider_request(provider, tool, args)
         async with httpx.AsyncClient(timeout=20) as client:
-            response = await client.post(f"{base.rstrip('/')}/{tool}", json=args, headers=headers)
+            response = await client.request(method, url, json=payload, headers=headers, params=params)
             response.raise_for_status()
             body = response.json()
         return envelope(tool, provider, "real", body)
+    except ValueError as exc:
+        return envelope(tool, provider, "real",
+                        error=err("PROVIDER_CAPABILITY_UNIMPLEMENTED", str(exc)))
     except httpx.TimeoutException:
         return envelope(tool, provider, "real", error=err(f"{provider.upper()}_TIMEOUT", "Provider timed out", True))
+    except httpx.HTTPStatusError as exc:
+        logger.warning("provider request failed tool=%s provider=%s status=%s",
+                       tool, provider, exc.response.status_code)
+        return envelope(tool, provider, "real", error=err(
+            f"{provider.upper()}_HTTP_{exc.response.status_code}",
+            f"{provider} rejected the request with HTTP {exc.response.status_code}",
+            exc.response.status_code >= 500))
     except (httpx.HTTPError, ValueError) as exc:
-        logger.warning("provider request failed tool=%s provider=%s error=%s", tool, provider, type(exc).__name__)
-        return envelope(tool, provider, "real", error=err(f"{provider.upper()}_ERROR", "Provider request failed", True))
+        logger.warning("provider request failed tool=%s provider=%s error=%s",
+                       tool, provider, type(exc).__name__)
+        return envelope(tool, provider, "real",
+                        error=err(f"{provider.upper()}_ERROR", "Provider request failed", True))
 
 def validate(tool: str, args: dict) -> dict | None:
     if tool == "collect_payment":
