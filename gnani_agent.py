@@ -1,6 +1,7 @@
 """Standalone Gnani gateway with a small, deterministic input contract."""
 from __future__ import annotations
 
+import base64
 import os
 import uuid
 from typing import Any
@@ -53,8 +54,17 @@ async def tts(request: Request) -> JSONResponse:
             return JSONResponse({"ok": False, "request_id": rid,
                                  "error": f"Gnani HTTP {response.status_code}: {detail}"},
                                 status_code=502)
+        content_type = response.headers.get("content-type", "application/octet-stream")
+        try:
+            data: Any = response.json()
+        except ValueError:
+            data = {
+                "audio_base64": base64.b64encode(response.content).decode("ascii"),
+                "content_type": content_type,
+                "bytes": len(response.content),
+            }
         return JSONResponse({"ok": True, "request_id": rid,
-                             "execution_mode": "real", "data": response.json()})
+                             "execution_mode": "real", "data": data})
     except ValueError as exc:
         return JSONResponse({"ok": False, "request_id": rid, "error": str(exc)}, status_code=400)
     except (httpx.HTTPError, ValueError) as exc:
